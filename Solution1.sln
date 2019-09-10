@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.757
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Applications", "Applications", "{C95D7BE0-D075-4667-9C9E-35FB892D4A80}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Services", "Services", "{A832ED11-9007-4642-93E3-E1CAF9ED4828}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Windows", "Windows", "{E9ADF42D-9F97-40F7-8CA6-15ABDF6A4C41}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerBIExcelService", "PowerBIExcelService\PowerBIExcelService.csproj", "{E187FDF8-626E-4B6D-A9DC-6FB8E486D683}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E187FDF8-626E-4B6D-A9DC-6FB8E486D683}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E187FDF8-626E-4B6D-A9DC-6FB8E486D683}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E187FDF8-626E-4B6D-A9DC-6FB8E486D683}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E187FDF8-626E-4B6D-A9DC-6FB8E486D683}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A832ED11-9007-4642-93E3-E1CAF9ED4828} = {C95D7BE0-D075-4667-9C9E-35FB892D4A80}
+		{E9ADF42D-9F97-40F7-8CA6-15ABDF6A4C41} = {A832ED11-9007-4642-93E3-E1CAF9ED4828}
+		{E187FDF8-626E-4B6D-A9DC-6FB8E486D683} = {E9ADF42D-9F97-40F7-8CA6-15ABDF6A4C41}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {226E754D-BDE5-4DDF-8D34-136E6575F537}
+	EndGlobalSection
+EndGlobal

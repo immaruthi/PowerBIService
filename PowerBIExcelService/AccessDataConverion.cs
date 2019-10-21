@@ -18,6 +18,10 @@ using Microsoft.Vbe.Interop;
 using Application = Microsoft.Office.Interop.Access.Application;
 using System.IO;
 using System.Threading;
+using System.Data.OleDb;
+using System.Data.Sql;
+using System.Data.SqlClient;
+using PowerBIExcelService.DataModels;
 
 namespace PowerBIExcelService
 {
@@ -41,6 +45,9 @@ namespace PowerBIExcelService
             application.OpenCurrentDatabase(databaseLocation);
             application.DoCmd.TransferSpreadsheet(AcDataTransferType.acExport, AcSpreadSheetType.acSpreadsheetTypeExcel12Xml,
                                                   queryNameToExport, locationToExportTo, true);
+
+            //application.DoCmd.CopyObject(null, null, AcObjectType.acTable, "RawDataReport");
+
             application.CloseCurrentDatabase();
             application.Quit();
             Marshal.ReleaseComObject(application);
@@ -99,17 +106,88 @@ namespace PowerBIExcelService
 
                 string[] accdbDirectory = System.IO.Directory.GetFiles(recommendedInputPaths[0], "*.accdb");
 
+                Directory.SetCurrentDirectory(AppDomain.CurrentDomain.BaseDirectory);
+                //String Root = Directory.GetCurrentDirectory();
+
+                string rawDataReportQuery = System.IO.File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), @"DBObjs\RawDataReport.txt"));
+
                 foreach (string accdbFile in accdbDirectory)
                 {
                     try
                     {
                         string accdbFileName = Path.GetFileName(accdbFile);
                         DBEngine dBEngine = new DBEngine();
-                        var openDb = dBEngine.OpenDatabase(accdbFile); 
-                        openDb.CreateQueryDef("RawDataReports", "Select * from DataEntryDefect");
+                        var openDb = dBEngine.OpenDatabase(accdbFile);
+                        Console.WriteLine("Preparing Query in desired database");
+                        //openDb.CreateQueryDef("RawDataReports0", rawDataReportQuery);
+                        Console.WriteLine("Query Preparation Done");
+
+                        //Provider=Microsoft.ACE.OLEDB.12.0;Data Source=|DataDirectory|\NKG-TH-CADEMS-BE-Vasari-LP2-PPPL-Ambient-v1.accdb
+                        string connString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source= " + accdbFile + ";";
+                        DataTable results = new DataTable();
+                        using (OleDbConnection conn = new OleDbConnection(connString))
+                        {
+                            OleDbCommand cmd = new OleDbCommand("SELECT * FROM RawDataReports0", conn);
+                            conn.Open();
+                            OleDbDataAdapter adapter = new OleDbDataAdapter(cmd);
+                            adapter.Fill(results);
+                        }
+
+                        //var distinctRows = (from DataRow DR in results.Rows select DR["Test name"]).Distinct();
+                        //(from DataRow dRow in results.Rows
+                        //                select dRow["col1"], dRow["col2"] ).Distinct();
+
+                        //List<ProgramFilters> programFilters = new List<ProgramFilters>();
+
+                        IEnumerable<ProgramFilters> programFiltersList =
+                            results.AsEnumerable()
+                            .Select(
+                                row =>
+                                new
+                                {
+                                    TestName = row.Field<string>("Test name"),
+                                    ProjectPhase = row.Field<string>("Project phase"),
+                                    ProgramSKU = row.Field<string>("Program & SKU"),
+                                    TestCondition = row.Field<string>("Test Condition")
+                                })
+                                .Distinct().Select(x => new ProgramFilters()
+                                {
+                                    ProgramSKU = x.ProgramSKU,
+                                    ProjectPhase = x.ProjectPhase,
+                                    TestCondition = x.TestCondition,
+                                    TestName = x.TestName
+                                });
+
+
+
+                        using (SqlConnection connection = new SqlConnection(System.Configuration.ConfigurationSettings.AppSettings["CentralizedDB"]))
+                        {
+                            connection.Open();
+                            foreach (ProgramFilters programFilters in programFiltersList)
+                            {
+
+                                string prepareCheckStatement = 
+                                    "select * from RawDataReport_Ambient where Test_name = '"+ programFilters.TestName+ "' and Project_phase='" +programFilters.ProjectPhase + "' and Program_SKU='" + programFilters.ProgramSKU + "' and Test_Condition = '" + programFilters.TestCondition + "'";
+                                SqlCommand sqlCommand = new SqlCommand(prepareCheckStatement, connection);
+                                SqlDataAdapter sqlDataAdapter = new SqlDataAdapter(sqlCommand);
+                                DataSet dataSet = new DataSet();
+                                sqlDataAdapter.Fill(dataSet);
+
+                                if(dataSet.Tables[0].Rows.Count>0)
+                                {
+                                    // Need to update this DataSet
+                                }
+
+                            }
+                        }
+
+
                         string fileSavePath = recommendedInputPaths[1] + "\\" + Path.GetFileNameWithoutExtension(accdbFileName) + DateTime.Now.ToString("yyyy-dd-M--HH-mm-ss") + ".xlsx";
+                        Console.WriteLine("Exporting as an Excel File");
                         ExportQuery(accdbFile, "RawDataReports", fileSavePath);
+                        Console.WriteLine("Your Excel file is ready at" + fileSavePath);
                         openDb.DeleteQueryDef("RawDataReports");
+                        Console.WriteLine("Disposing objects and Restoring to previous version ! original version");
                         openDb.Close();
                         string moveDestinationPath = Path.Combine(recommendedInputPaths[2], Path.GetFileName(accdbFileName));
                         File.Move(accdbFile, moveDestinationPath);

@@ -59,6 +59,7 @@
     <Compile Include="AccessDataConverion.Designer.cs">
       <DependentUpon>AccessDataConverion.cs</DependentUpon>
     </Compile>
+    <Compile Include="DataModels\ProgramFilters.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="ProjectInstaller.cs">
       <SubType>Component</SubType>
@@ -123,6 +124,11 @@
       <Isolated>False</Isolated>
       <EmbedInteropTypes>True</EmbedInteropTypes>
     </COMReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="DBObjs\RawDataReport.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

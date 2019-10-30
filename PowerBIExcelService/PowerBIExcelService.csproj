@@ -60,6 +60,7 @@
       <DependentUpon>AccessDataConverion.cs</DependentUpon>
     </Compile>
     <Compile Include="DataModels\ProgramFilters.cs" />
+    <Compile Include="DataModels\ServiceDataModel.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="ProjectInstaller.cs">
       <SubType>Component</SubType>

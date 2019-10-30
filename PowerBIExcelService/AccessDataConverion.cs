@@ -119,28 +119,22 @@ namespace PowerBIExcelService
                         DBEngine dBEngine = new DBEngine();
                         var openDb = dBEngine.OpenDatabase(accdbFile);
                         Console.WriteLine("Preparing Query in desired database");
-                        //openDb.CreateQueryDef("RawDataReports0", rawDataReportQuery);
+                        openDb.CreateQueryDef("RawDataReports", rawDataReportQuery);
                         Console.WriteLine("Query Preparation Done");
 
                         //Provider=Microsoft.ACE.OLEDB.12.0;Data Source=|DataDirectory|\NKG-TH-CADEMS-BE-Vasari-LP2-PPPL-Ambient-v1.accdb
                         string connString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source= " + accdbFile + ";";
-                        DataTable results = new DataTable();
+                        DataTable resultsDataset = new DataTable();
                         using (OleDbConnection conn = new OleDbConnection(connString))
                         {
-                            OleDbCommand cmd = new OleDbCommand("SELECT * FROM RawDataReports0", conn);
+                            OleDbCommand cmd = new OleDbCommand("SELECT * FROM RawDataReports", conn);
                             conn.Open();
                             OleDbDataAdapter adapter = new OleDbDataAdapter(cmd);
-                            adapter.Fill(results);
+                            adapter.Fill(resultsDataset);
                         }
 
-                        //var distinctRows = (from DataRow DR in results.Rows select DR["Test name"]).Distinct();
-                        //(from DataRow dRow in results.Rows
-                        //                select dRow["col1"], dRow["col2"] ).Distinct();
-
-                        //List<ProgramFilters> programFilters = new List<ProgramFilters>();
-
                         IEnumerable<ProgramFilters> programFiltersList =
-                            results.AsEnumerable()
+                            resultsDataset.AsEnumerable()
                             .Select(
                                 row =>
                                 new
@@ -158,16 +152,38 @@ namespace PowerBIExcelService
                                     TestName = x.TestName
                                 });
 
+                        List<ServiceDataModel> serviceDataModel = new List<ServiceDataModel>();
+
+                        foreach(ProgramFilters programFiltersForData in programFiltersList)
+                        {
+                            //DataRow[] dataRows = 
+                            //    resultsDataset.Select("Test name = "+ programFiltersForData .TestName+ " AND (Project phase = "+ programFiltersForData.ProjectPhase+ " AND Program & SKU = "+ programFiltersForData.ProgramSKU + " and Test Condition ="+ programFiltersForData.TestCondition + ")");
+
+                            var result = 
+                                resultsDataset.AsEnumerable()
+                                .Where(
+                                    x => x.Field<string>("Test name").Contains(programFiltersForData.TestName) &&
+                                         x.Field<string>("Project phase").Contains(programFiltersForData.ProjectPhase) &&
+                                         x.Field<string>("Program & SKU").Contains(programFiltersForData.ProgramSKU) &&
+                                         x.Field<string>("Test Condition").Contains(programFiltersForData.TestCondition)).CopyToDataTable();
+
+                            serviceDataModel.Add(new ServiceDataModel()
+                            {
+                                dataTables = result,
+                                programFilters = programFiltersForData
+                            });      
+                        }
+
 
 
                         using (SqlConnection connection = new SqlConnection(System.Configuration.ConfigurationSettings.AppSettings["CentralizedDB"]))
                         {
                             connection.Open();
-                            foreach (ProgramFilters programFilters in programFiltersList)
+                            foreach (ServiceDataModel serviceData in serviceDataModel)
                             {
 
                                 string prepareCheckStatement = 
-                                    "select * from RawDataReport_Ambient where Test_name = '"+ programFilters.TestName+ "' and Project_phase='" +programFilters.ProjectPhase + "' and Program_SKU='" + programFilters.ProgramSKU + "' and Test_Condition = '" + programFilters.TestCondition + "'";
+                                    "select * from RawDataReport where Test_name = '"+ serviceData.programFilters.TestName+ "' and Project_phase='" +serviceData.programFilters.ProjectPhase + "' and Program_SKU='" + serviceData.programFilters.ProgramSKU + "' and Test_Condition = '" + serviceData.programFilters.TestCondition + "'";
                                 SqlCommand sqlCommand = new SqlCommand(prepareCheckStatement, connection);
                                 SqlDataAdapter sqlDataAdapter = new SqlDataAdapter(sqlCommand);
                                 DataSet dataSet = new DataSet();
@@ -176,6 +192,14 @@ namespace PowerBIExcelService
                                 if(dataSet.Tables[0].Rows.Count>0)
                                 {
                                     // Need to update this DataSet
+                                    string deleteStatement = "Delete From RawDataReport where Test_name = '" + serviceData.programFilters.TestName + "' and Project_phase='" + serviceData.programFilters.ProjectPhase + "' and Program_SKU='" + serviceData.programFilters.ProgramSKU + "' and Test_Condition = '" + serviceData.programFilters.TestCondition + "'";
+                                    sqlCommand = new SqlCommand(deleteStatement, connection);
+                                    sqlCommand.ExecuteNonQuery();
+                                    BulkCopyForDataTable(connection, serviceData);
+                                }
+                                else
+                                {
+                                    BulkCopyForDataTable(connection, serviceData);
                                 }
 
                             }
@@ -190,7 +214,8 @@ namespace PowerBIExcelService
                         Console.WriteLine("Disposing objects and Restoring to previous version ! original version");
                         openDb.Close();
                         string moveDestinationPath = Path.Combine(recommendedInputPaths[2], Path.GetFileName(accdbFileName));
-                        File.Move(accdbFile, moveDestinationPath);
+
+                        File.Move(accdbFile, moveDestinationPath + DateTime.Now.ToString("_MMMdd_yyyy_HHmmss") + ".accdb");
                     }
                     catch (Exception exception)
                     {
@@ -224,6 +249,22 @@ namespace PowerBIExcelService
             Schedular.Change(dueTime, Timeout.Infinite);
         }
 
+        private static void BulkCopyForDataTable(SqlConnection connection, ServiceDataModel serviceData)
+        {
+            using (SqlBulkCopy sqlBulkCopy = new SqlBulkCopy(connection))
+            {
+                sqlBulkCopy.DestinationTableName = "RawDataReport";
+
+                try
+                {
+                    sqlBulkCopy.WriteToServer(serviceData.dataTables);
+                }
+                catch (Exception ex)
+                {
+
+                }
+            }
+        }
 
         protected override void OnStop()
         {
